@@ -1,0 +1,259 @@
+:root { 
+    --primary: #2563eb;
+    --danger: #dc2626;
+    --success: #16a34a;
+    --warning: #ca8a04;
+    --bg: #f8fafc;
+    --panel-bg: #ffffff;
+    --border: #cbd5e1;
+    --text-main: #0f172a;
+    --violet: #8b5cf6;
+    --profit: #059669;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body { 
+    font-family: 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text-main); 
+    margin: 0;
+    padding: 10px;
+    height: 100vh;
+    width: 100vw;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; 
+}
+
+#overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(15, 23, 42, 0.85);
+    backdrop-filter: blur(6px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.start-card {
+    background: white;
+    padding: 40px;
+    border-radius: 20px;
+    text-align: center;
+    box-shadow: 0 20px 25px -5px rgba(0,0,0,0.2);
+    border: 4px solid var(--primary);
+}
+
+.start-btn {
+    padding: 15px 40px;
+    font-size: 1.5rem;
+    font-weight: 900;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.start-btn:hover {
+    background: #1d4ed8;
+    transform: scale(1.05);
+}
+
+.stat-bar { 
+    display: grid;
+    grid-template-columns: 0.9fr 0.7fr 0.7fr 0.7fr 1.1fr 1.1fr 1.1fr 0.7fr 0.9fr;
+    gap: 8px;
+    height: 12vh;
+    min-height: 85px;
+    margin-bottom: 10px;
+}
+
+.stat-card { 
+    background: var(--panel-bg);
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    padding: 5px;
+    overflow: hidden;
+}
+
+.day-box {
+    border: 3px solid var(--primary);
+}
+
+.stat-label {
+    font-size: 0.65rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    color: #64748b;
+    text-align: center;
+    margin-bottom: 2px;
+}
+
+.stat-val {
+    font-size: 1.3rem;
+    font-weight: 900;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.main-layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    gap: 15px;
+    height: 84vh;
+}
+
+.sidebar { 
+    background: var(--panel-bg);
+    border: 2px solid var(--border);
+    border-radius: 15px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    overflow-y: auto;
+}
+
+.input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.input-group label {
+    font-size: 0.7rem;
+    font-weight: 800;
+    color: #475569;
+}
+
+.input-group input {
+    padding: 4px;
+    font-size: 1rem;
+    font-weight: bold;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    text-align: center;
+}
+
+.speed-box {
+    background: #f1f5f9;
+    padding: 8px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    margin-top: 5px;
+}
+
+.btn-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: auto;
+}
+
+.order-btn {
+    padding: 10px;
+    font-size: 1.1rem;
+    font-weight: 900;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+}
+
+.auto-btn {
+    padding: 8px;
+    font-size: 0.8rem;
+    font-weight: 800;
+    background: #94a3b8;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.auto-btn.active {
+    background: var(--violet);
+    box-shadow: 0 0 10px var(--violet);
+}
+
+.content {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.visual-box {
+    background: white;
+    border: 2px solid var(--border);
+    border-radius: 15px;
+    height: 12vh;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+}
+
+#truck {
+    position: absolute;
+    right: -100px;
+    font-size: 3.5rem;
+    transition: right 1.5s linear;
+    opacity: 0;
+}
+
+.plant {
+    position: absolute;
+    left: 15px;
+    font-size: 3.5rem;
+}
+
+.road {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    height: 10px;
+    background: #94a3b8;
+    border-top: 3px dashed white;
+}
+
+.chart-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 10px;
+    flex-grow: 1;
+}
+
+.chart-container {
+    background: white;
+    border: 2px solid var(--border);
+    border-radius: 15px;
+    padding: 10px;
+    position: relative;
+}
+
+.btn-small {
+    padding: 6px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    border-radius: 8px;
+    cursor: pointer;
+    border: none;
+    color: white;
+}
