@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EOQ Mission Control - Profit Tracker</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root { 
+            --primary: #2563eb; --danger: #dc2626; --success: #16a34a; --warning: #ca8a04;
+            --bg: #f8fafc; --panel-bg: #ffffff; --border: #cbd5e1; --text-main: #0f172a;
+            --violet: #8b5cf6; --profit: #059669;
+        }
+        
+        * { box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text-main); 
+            margin: 0; padding: 10px; height: 100vh; width: 100vw;
+            display: flex; flex-direction: column; overflow: hidden; 
+        }
+        
+        #overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(6px);
+            display: flex; justify-content: center; align-items: center; z-index: 1000;
+        }
+        .start-card {
+            background: white; padding: 40px; border-radius: 20px; text-align: center;
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.2); border: 4px solid var(--primary);
+        }
+        .start-btn {
+            padding: 15px 40px; font-size: 1.5rem; font-weight: 900;
+            background: var(--primary); color: white; border: none; border-radius: 12px;
+            cursor: pointer; transition: all 0.2s;
+        }
+        .start-btn:hover { background: #1d4ed8; transform: scale(1.05); }
+
+        .stat-bar { 
+            display: grid; grid-template-columns: 0.9fr 0.7fr 0.7fr 0.7fr 1.1fr 1.1fr 1.1fr 0.7fr 0.9fr; 
+            gap: 8px; height: 12vh; min-height: 85px; margin-bottom: 10px; 
+        }
+        .stat-card { 
+            background: var(--panel-bg); border: 2px solid var(--border); 
+            border-radius: 12px; display: flex; flex-direction: column; 
+            justify-content: center; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            padding: 5px; overflow: hidden;
+        }
+        .day-box { border: 3px solid var(--primary); }
+        .stat-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; color: #64748b; text-align: center; margin-bottom: 2px; }
+        .stat-val { font-size: 1.3rem; font-weight: 900; line-height: 1; white-space: nowrap; }
+
+        .main-layout { display: grid; grid-template-columns: 260px 1fr; gap: 15px; height: 84vh; }
+
+        .sidebar { 
+            background: var(--panel-bg); border: 2px solid var(--border); 
+            border-radius: 15px; padding: 12px; display: flex; flex-direction: column; gap: 4px;
+            overflow-y: auto;
+        }
+        .input-group { display: flex; flex-direction: column; gap: 2px; }
+        .input-group label { font-size: 0.7rem; font-weight: 800; color: #475569; }
+        .input-group input { padding: 4px; font-size: 1rem; font-weight: bold; border: 2px solid var(--border); border-radius: 8px; text-align: center; }
+        
+        .speed-box { background: #f1f5f9; padding: 8px; border-radius: 10px; border: 1px solid var(--border); margin-top: 5px; }
+        
+        .btn-stack { display: flex; flex-direction: column; gap: 8px; margin-top: auto; }
+        .order-btn { padding: 10px; font-size: 1.1rem; font-weight: 900; background: var(--primary); color: white; border: none; border-radius: 12px; cursor: pointer; }
+        .auto-btn { padding: 8px; font-size: 0.8rem; font-weight: 800; background: #94a3b8; color: white; border: none; border-radius: 8px; cursor: pointer; transition: all 0.3s; }
+        .auto-btn.active { background: var(--violet); box-shadow: 0 0 10px var(--violet); }
+
+        .content { display: flex; flex-direction: column; gap: 10px; }
+        .visual-box { background: white; border: 2px solid var(--border); border-radius: 15px; height: 12vh; position: relative; overflow: hidden; display: flex; align-items: center; }
+        #truck { position: absolute; right: -100px; font-size: 3.5rem; transition: right 1.5s linear; opacity: 0; }
+        .plant { position: absolute; left: 15px; font-size: 3.5rem; }
+        .road { position: absolute; bottom: 0; width: 100%; height: 10px; background: #94a3b8; border-top: 3px dashed white; }
+
+        .chart-grid { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 10px; flex-grow: 1; }
+        .chart-container { background: white; border: 2px solid var(--border); border-radius: 15px; padding: 10px; position: relative; }
+
+        .btn-small { padding: 6px; font-size: 0.8rem; font-weight: bold; border-radius: 8px; cursor: pointer; border: none; color: white; }
+    </style>
+</head>
+<body>
+
+    <div id="overlay">
+        <div class="start-card">
+            <h1 style="margin-top:0; color:var(--text-main)">EOQ MISSION CONTROL</h1>
+            <p style="color:#64748b; margin-bottom:25px;">Set your inventory parameters and<br>maximize your net profit.</p>
+            <button class="start-btn" onclick="startMission()">LAUNCH MISSION</button>
+        </div>
+    </div>
+
+    <div class="stat-bar">
+        <div class="stat-card day-box"><span class="stat-label">Timer</span><span id="dayCounter" class="stat-val" style="color:var(--primary)">DAY 0</span></div>
+        <div class="stat-card"><span class="stat-label">Stock</span><span id="stockVal" class="stat-val" style="color:var(--success)">-</span></div>
+        <div class="stat-card" style="border-color: #0ea5e9"><span class="stat-label">Sales</span><span id="salesVal" class="stat-val" style="color:#0ea5e9">-</span></div>
+        <div class="stat-card"><span class="stat-label">Lost ☹</span><span id="lostVal" class="stat-val" style="color:var(--danger)">-</span></div>
+        <div class="stat-card"><span class="stat-label">Costs</span><span id="totalCostVal" class="stat-val">$0</span></div>
+        <div class="stat-card" style="border-color: var(--violet)"><span class="stat-label">Revenue</span><span id="totalRevVal" class="stat-val" style="color:var(--violet)">$0</span></div>
+        <div class="stat-card" id="profitCard" style="border-width:3px;"><span class="stat-label">Net Profit</span><span id="profitVal" class="stat-val">$0</span></div>
+        <div class="stat-card" style="border-color: var(--warning)"><span class="stat-label">ROP</span><span id="ropVal" class="stat-val" style="color:var(--warning)">-</span></div>
+        <div class="stat-card" style="gap:4px; border:none; background:transparent;">
+            <button id="freezeBtn" class="btn-small" style="background:var(--danger); width:100%;" onclick="toggleFreeze()">PAUSE</button>
+            <button class="btn-small" style="background:#64748b; width:100%;" onclick="resetSim()">RESET</button>
+        </div>
+    </div>
+
+    <div class="main-layout">
+        <div class="sidebar">
+            <div class="input-group"><label>Initial Inv</label><input type="number" id="inInit" value="100"></div>
+            <div class="input-group"><label>Demand (D)</label><input type="number" id="inD" value="10"></div>
+            <div class="input-group"><label>Selling Price</label><input type="number" id="inSellPrice" value="25"></div>
+            <div class="input-group"><label>Setup Cost (K)</label><input type="number" id="inS" value="100"></div>
+            <div class="input-group"><label>Unit Price (P)</label><input type="number" id="inP" value="10"></div>
+            <div class="input-group"><label>Holding Cost (h)</label><input type="number" id="inH" value="0.2"></div>
+            <div class="input-group"><label>Lead Time (L)</label><input type="number" id="inLT" value="5"></div>
+            <div class="input-group"><label>Order Qty (Q)</label><input type="number" id="inQ" value="100"></div>
+            <div class="speed-box">
+                <label style="font-size:0.7rem; font-weight:800; color:#475569; display:block; margin-bottom:5px;">SIM SPEED</label>
+                <input type="range" id="speedRange" min="50" max="550" value="350" style="width:100%; accent-color:var(--primary);">
+            </div>
+            
+            <div class="btn-stack">
+                <button id="autoOrderBtn" class="auto-btn" onclick="toggleAutoOrder()">AUTO-ORDER: OFF</button>
+                <button id="orderBtn" class="order-btn" onclick="placeOrder()">PLACE ORDER</button>
+            </div>
+            <div id="shipCount" style="text-align:center; font-weight:bold; color:var(--primary); font-size:0.8rem; margin-top:5px;">Shipments Pending: 0</div>
+        </div>
+
+        <div class="content">
+            <div class="visual-box"><div class="plant">🏭</div><div id="truck">🚚</div><div class="road"></div></div>
+            <div class="chart-grid">
+                <div class="chart-container"><canvas id="inventoryChart"></canvas></div>
+                <div class="chart-container"><canvas id="procurementChart"></canvas></div>
+                <div class="chart-container"><canvas id="holdingChart"></canvas></div>
+                <div class="chart-container"><canvas id="stockoutChart"></canvas></div>
+            </div>
+        </div>
+    </div>
+
+<script>
+    let isPaused = true, autoOrder = false, stock, time, lostCustomers, pending, totalAccruedCost, totalRevenue, totalSalesUnits = 0, currentProcHit = 0, charts = {}, engineTimeout = null;
+
+    function startMission() {
+        document.getElementById('overlay').style.display = 'none';
+        isPaused = false;
+        resetSim();
+    }
+
+    function resetSim() {
+        if (engineTimeout) clearTimeout(engineTimeout);
+        
+        // 1. Get current inputs
+        const D = parseFloat(document.getElementById('inD').value) || 0;
+        const LT = parseFloat(document.getElementById('inLT').value) || 0;
+		const Q = parseFloat(document.getElementById('inQ').value) || 1; // Added Q for the calculation
+        // const initialROP = D * LT;
+		const initialROP = D * (LT % (Q / D));
+        
+        stock = parseFloat(document.getElementById('inInit').value) || 0;
+        time = 0; lostCustomers = 0; currentProcHit = 0; totalAccruedCost = 0; 
+        totalRevenue = 0; totalSalesUnits = 0; pending = [];
+        
+        // 2. Reset UI Elements
+        document.getElementById('dayCounter').innerText = "DAY 0";
+        document.getElementById('stockVal').innerText = stock;
+        document.getElementById('totalCostVal').innerText = "$0";
+        document.getElementById('totalRevVal').innerText = "$0";
+        document.getElementById('salesVal').innerText = "0";
+        document.getElementById('lostVal').innerText = "0";
+        document.getElementById('profitVal').innerText = "$0";
+        document.getElementById('ropVal').innerText = Math.round(initialROP);
+        document.getElementById('shipCount').innerText = "Shipments Pending: 0";
+        
+        // 3. Clear and Pre-fill Charts to prevent the "slope from zero"
+        Object.values(charts).forEach(c => { 
+            c.data.labels = ["0.0"]; 
+            c.data.datasets.forEach(ds => ds.data = []); 
+        });
+
+        // Pre-seed the Inventory Chart with Day 0 values
+        charts.inv.data.datasets[0].data.push(stock.toFixed(1)); // Initial Stock
+        charts.inv.data.datasets[1].data.push(initialROP.toFixed(1)); // Constant ROP
+        
+        Object.values(charts).forEach(c => c.update());
+
+        if(!isPaused) {
+            engine();
+        }
+    }
+
+    const opt = { 
+        responsive: true, maintainAspectRatio: false, animation: false,
+        scales: { 
+            x: { display: true, grid: { display: false }, ticks: { maxTicksLimit: 8, color: '#94a3b8', font: { size: 9 } } }, 
+            y: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { color: '#1e293b', font: { size: 10, weight: 'bold' } } } 
+        },
+        plugins: { legend: { labels: { color: '#0f172a', font: { size: 10, weight: 'bold' }, boxWidth: 8 } } }
+    };
+
+    function initCharts() {
+        charts.inv = new Chart(document.getElementById('inventoryChart'), {
+            type: 'line', options: opt, 
+            data: { labels: [], datasets: [
+                { label: 'Stock', data: [], borderColor: '#16a34a', backgroundColor: '#16a34a22', fill: true, tension: 0, pointRadius: 0 },
+                { label: 'ROP', data: [], borderColor: '#ca8a04', borderDash: [5, 5], fill: false, pointRadius: 0 }
+            ]}
+        });
+        charts.proc = new Chart(document.getElementById('procurementChart'), {
+            type: 'bar', options: opt, 
+            data: { labels: [], datasets: [{ label: 'Order Costs ($)', data: [], backgroundColor: '#8b5cf6', barThickness: 10 }] }
+        });
+        charts.hold = new Chart(document.getElementById('holdingChart'), {
+            type: 'line', options: opt, 
+            data: { labels: [], datasets: [{ label: 'Holding Cost ($)', data: [], borderColor: '#2563eb', backgroundColor: '#2563eb22', fill: true, tension: 0, pointRadius: 0 }] }
+        });
+        charts.lost = new Chart(document.getElementById('stockoutChart'), {
+            type: 'line', options: opt, 
+            data: { labels: [], datasets: [{ label: 'Lost Sales (cumulative)', data: [], borderColor: '#dc2626', backgroundColor: '#dc262622', fill: true, tension: 0, pointRadius: 0 }] }
+        });
+    }
+
+    function toggleFreeze() { 
+        isPaused = !isPaused; 
+        const btn = document.getElementById('freezeBtn');
+        if (isPaused) { btn.innerText = "RESUME"; btn.style.background = "var(--success)"; } 
+        else { btn.innerText = "PAUSE"; btn.style.background = "var(--danger)"; engine(); }
+    }
+
+    function toggleAutoOrder() {
+        autoOrder = !autoOrder;
+        const btn = document.getElementById('autoOrderBtn');
+        btn.innerText = autoOrder ? "AUTO-ORDER: ON" : "AUTO-ORDER: OFF";
+        btn.classList.toggle('active', autoOrder);
+    }
+
+    function placeOrder() {
+        const Q = parseFloat(document.getElementById('inQ').value), S = parseFloat(document.getElementById('inS').value), P = parseFloat(document.getElementById('inP').value), LT = parseFloat(document.getElementById('inLT').value);
+        currentProcHit += (S + (P * Q)); totalAccruedCost += (S + (P * Q));
+        pending.push({ arrival: time + LT, qty: Q });
+        document.getElementById('shipCount').innerText = `Shipments Pending: ${pending.length}`;
+    }
+
+    function engine() {
+    if (isPaused) return;
+    const D = parseFloat(document.getElementById('inD').value), 
+          H = parseFloat(document.getElementById('inH').value), 
+          LT = parseFloat(document.getElementById('inLT').value),
+		  Q = parseFloat(document.getElementById('inQ').value), // Ensure Q is pulled
+          sellPrice = parseFloat(document.getElementById('inSellPrice').value),
+          tickStep = 0.2;
+    
+	const rop = D * (LT % (Q / D));
+    // const rop = D * LT;
+
+    // --- 1. RESOLVE SHIPMENTS FIRST ---
+    // This ensures stock is available for the current tick's demand
+    const truck = document.getElementById('truck');
+    let anyTruckActive = false;
+    pending.forEach((o, i) => {
+        // Visual truck trigger
+        if (time >= o.arrival - 1.5 && !anyTruckActive) { 
+            anyTruckActive = true; 
+            truck.style.opacity = "1"; 
+            truck.style.right = "calc(100% - 70px)"; 
+        }
+        // Stock update happens BEFORE demand calculation
+        if (time >= o.arrival) { 
+            stock += o.qty; 
+            pending.splice(i, 1); 
+            document.getElementById('shipCount').innerText = `Shipments Pending: ${pending.length}`; 
+            truck.style.opacity = "0"; 
+            truck.style.right = "-100px"; 
+        }
+    });
+
+    // --- 2. AUTO-ORDER LOGIC ---
+    if (autoOrder && pending.length === 0 && stock <= (D * (LT + tickStep))) {
+        placeOrder();
+    }
+
+    // --- 3. APPLY CONSUMPTION ---
+    // Now that the shipment is added, stock > 0 and no "Lost Sales" occur
+    if (stock > 0) { 
+        let salesThisTick = Math.min(stock, D * tickStep);
+        stock = Math.max(0, stock - (D * tickStep)); 
+        totalAccruedCost += (stock * H * tickStep); 
+        totalRevenue += (salesThisTick * sellPrice);
+        totalSalesUnits += salesThisTick;
+    } else { 
+        lostCustomers += (D * tickStep); 
+    }
+
+    time += tickStep;
+    updateUI(rop);
+    
+    engineTimeout = setTimeout(engine, 600 - document.getElementById('speedRange').value);
+	}
+	
+    function updateUI(rop) {
+        const H = parseFloat(document.getElementById('inH').value);
+        const netProfit = totalRevenue - totalAccruedCost;
+        const profitEl = document.getElementById('profitVal');
+        const profitCard = document.getElementById('profitCard');
+        
+        document.getElementById('dayCounter').innerText = "DAY " + Math.floor(time);
+        profitEl.innerText = (netProfit >= 0 ? "$" : "-$") + Math.abs(Math.round(netProfit)).toLocaleString();
+        profitEl.style.color = netProfit >= 0 ? 'var(--profit)' : 'var(--danger)';
+        profitCard.style.borderColor = netProfit >= 0 ? 'var(--profit)' : 'var(--danger)';
+
+        const label = time.toFixed(1);
+        charts.inv.data.labels.push(label); 
+        charts.inv.data.datasets[0].data.push(stock.toFixed(1)); 
+        charts.inv.data.datasets[1].data.push(rop.toFixed(1));
+        
+        charts.proc.data.labels.push(label); 
+        charts.proc.data.datasets[0].data.push(currentProcHit); 
+        currentProcHit = 0; 
+        
+        charts.hold.data.labels.push(label); 
+        charts.hold.data.datasets[0].data.push((stock * H).toFixed(2));
+        
+        charts.lost.data.labels.push(label); 
+        charts.lost.data.datasets[0].data.push(lostCustomers.toFixed(0));
+
+        Object.values(charts).forEach(c => {
+            if (c.data.labels.length > 70) { c.data.labels.shift(); c.data.datasets.forEach(ds => ds.data.shift()); }
+            c.update('none');
+        });
+
+        document.getElementById('stockVal').innerText = Math.round(stock);
+        document.getElementById('salesVal').innerText = Math.round(totalSalesUnits).toLocaleString();
+        document.getElementById('lostVal').innerText = Math.round(lostCustomers);
+        document.getElementById('totalCostVal').innerText = "$" + Math.round(totalAccruedCost).toLocaleString();
+        document.getElementById('totalRevVal').innerText = "$" + Math.round(totalRevenue).toLocaleString();
+        document.getElementById('ropVal').innerText = Math.round(rop);
+    }
+
+    initCharts();
+</script>
+</body>
+</html>
