@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Process Analysis: Cookie Business Flow</title>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --accent: #f39c12; /* Cookie Gold */
+            --blue-box: #dae5f0;
+            --blue-border: #8faac7;
+            --danger: #c0392b;
+            --danger-bg: #fadbd8;
+            --bg: #f4f7f6;
+            --card-bg: #ffffff;
+            --border-radius: 12px;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--primary);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container { max-width: 1200px; margin: 0 auto; }
+
+        header { text-align: center; margin-bottom: 30px; }
+        h1 { margin: 0; color: var(--primary); }
+        p.subtitle { color: #7f8c8d; font-size: 1.1em; }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1.2fr 0.8fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        @media (max-width: 900px) { .dashboard { grid-template-columns: 1fr; } }
+
+        .card {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: var(--border-radius);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        }
+
+        .card h2 {
+            margin-top: 0;
+            border-bottom: 2px solid var(--bg);
+            padding-bottom: 10px;
+            font-size: 1.1em;
+            color: var(--primary);
+        }
+
+        .resource-row {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr;
+            align-items: center;
+            background: #fff;
+            border: 1px solid #eee;
+            padding: 10px 12px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            gap: 10px;
+        }
+        
+        .resource-row label { font-weight: 600; font-size: 0.9em; display: block;}
+        
+        .input-group { text-align: center; }
+        .input-group label { font-size: 0.7em; color: #888; margin-bottom: 2px; text-transform: uppercase; }
+
+        .resource-row input {
+            width: 50px;
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            text-align: center;
+            font-weight: bold;
+            color: var(--primary);
+        }
+
+        .resource-row input.readonly {
+            background-color: #f9f9f9;
+            color: #777;
+            border-color: transparent;
+        }
+
+        .small-text { font-size: 0.8em; color: #888; }
+
+        table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
+        th, td { text-align: left; padding: 10px; border-bottom: 1px solid #eee; }
+        th { color: #888; text-transform: uppercase; font-size: 0.8em; }
+        .bar-bg { width: 100%; height: 8px; background: #eee; border-radius: 4px; overflow: hidden; margin-top: 5px;}
+        .bar-fill { height: 100%; background: var(--accent); transition: width 0.3s; }
+        .bar-fill.bn { background: var(--danger); }
+
+        .process-map-section {
+            background: white;
+            padding: 20px;
+            border-radius: var(--border-radius);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+            overflow-x: auto;
+        }
+        
+        .map-container {
+            display: flex;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .map-step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        .inventory-triangle {
+            width: 0; height: 0; 
+            border-left: 20px solid transparent;
+            border-right: 20px solid transparent;
+            border-bottom: 35px solid #9b59b6; /* Purple for cookies */
+            margin: 15px 10px;
+        }
+
+        .process-box {
+            background-color: var(--blue-box);
+            border: 2px solid var(--blue-border);
+            padding: 10px;
+            text-align: center;
+            width: 130px;
+            font-size: 0.9em;
+            font-weight: 600;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.05);
+            z-index: 2;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .step-time-input {
+            width: 40px;
+            padding: 2px;
+            text-align: center;
+            border: 1px solid #8faac7;
+            border-radius: 4px;
+            font-size: 0.9em;
+            color: #2c3e50;
+        }
+        .step-label { font-size: 0.75em; color: #666; font-weight: normal; }
+
+        .resource-tag {
+            font-size: 0.75em;
+            color: #555;
+            margin-top: 5px;
+            font-style: italic;
+            text-align: center;
+        }
+
+        .arrow-connector {
+            font-size: 20px;
+            color: #8faac7;
+            align-self: center;
+            margin: 0 5px;
+        }
+
+        .flow-section {
+            background: white;
+            padding: 30px;
+            border-radius: var(--border-radius);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            margin-top: 20px;
+            overflow-x: auto;
+        }
+
+        .flow-wrapper {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: relative;
+            min-height: 250px;
+            padding: 0 20px;
+        }
+
+        .flow-line {
+            position: absolute;
+            top: 50%;
+            left: 40px;
+            right: 40px;
+            height: 6px;
+            background: #ecf0f1;
+            transform: translateY(-50%);
+            z-index: 0;
+            border-radius: 3px;
+        }
+
+        .flow-node {
+            position: relative;
+            z-index: 1;
+            background: white;
+            border: 3px solid var(--primary);
+            border-radius: 10px;
+            width: 140px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .flow-node.bottleneck {
+            border-color: var(--danger);
+            background-color: var(--danger-bg);
+            box-shadow: 0 0 15px rgba(192, 57, 43, 0.4);
+        }
+
+        .node-content { padding: 5px; }
+        .node-icon { font-size: 1.5em; display: block; margin-bottom: 2px; }
+        .node-title { font-weight: bold; font-size: 0.95em; display: block; }
+        .node-stat { font-size: 0.8em; background: rgba(255,255,255,0.8); padding: 2px 6px; border-radius: 4px; margin-top: 2px; }
+        
+        .arrow-next {
+            position: absolute;
+            right: -30px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #bdc3c7;
+            font-size: 24px;
+        }
+
+		.kpi-header {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #27ae60; 
+            color: white;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>🍪 Kristen's Cookie Company</h1>
+        <p class="subtitle">Enter step times below to calculate hourly capacity</p>
+    </header>
+
+    <div class="process-map-section">
+        <h3 style="margin-top:0; color:#555; border-bottom:1px solid #eee; padding-bottom:10px;">1. Process Flow Diagram & Timings (per dozen)</h3>
+        <div class="map-container">
+            
+            <div class="inventory-triangle"></div>
+            <div class="arrow-connector">➜</div>
+
+            <div class="map-step">
+                <div class="process-box">
+                    <span>Wash<br>& Mix</span>
+                    <div>
+                        <input type="number" id="step_kristen_1" class="step-time-input" value="6" oninput="update()">
+                        <span class="step-label">min</span>
+                    </div>
+                </div>
+                <div class="resource-tag">Kristen 👩‍🍳</div>
+            </div>
+            
+            <div class="inventory-triangle"></div>
+            <div class="arrow-connector">➜</div>
+
+            <div class="map-step">
+                <div class="process-box">
+                    <span>Dish<br>Up</span>
+                    <div>
+                        <input type="number" id="step_kristen_2" class="step-time-input" value="2" oninput="update()">
+                        <span class="step-label">min</span>
+                    </div>
+                </div>
+                <div class="resource-tag">Kristen 👩‍🍳</div>
+            </div>
+
+            <div class="inventory-triangle"></div>
+            <div class="arrow-connector">➜</div>
+
+            <div class="map-step">
+                <div class="process-box">
+                    <span>Load &<br>Set Timer</span>
+                    <div>
+                        <input type="number" id="step_room_1" class="step-time-input" value="1" oninput="update()">
+                        <span class="step-label">min</span>
+                    </div>
+                </div>
+                <div class="resource-tag">Roommate 🙋‍♂️, ♨️ Oven</div>
+            </div>
+
+            <div class="inventory-triangle"></div>
+            <div class="arrow-connector">➜</div>
+
+            <div class="map-step">
+                <div class="process-box">
+                    <span>Bake<br>(Oven)</span>
+                    <div>
+                        <input type="number" id="step_oven_1" class="step-time-input" value="9" oninput="update()">
+                        <span class="step-label">min</span>
+                    </div>
+                </div>
+                <div class="resource-tag">♨️ Oven</div>
+            </div>
+
+            <div class="inventory-triangle"></div>
+            <div class="arrow-connector">➜</div>
+
+            <div class="map-step">
+                <div class="process-box">
+                    <span>Cool<br>Down</span>
+                    <div>
+                        <input type="number" id="step_cool" class="step-time-input" value="5" oninput="update()">
+                        <span class="step-label">min</span>
+                    </div>
+                </div>
+                <div class="resource-tag">❄️ Counter</div>
+            </div>
+
+            <div class="inventory-triangle"></div>
+            <div class="arrow-connector">➜</div>
+
+             <div class="map-step">
+                <div class="process-box">
+                    <span>Pack<br>Cookies</span>
+                    <div>
+                        <input type="number" id="step_room_2" class="step-time-input" value="2" oninput="update()">
+                        <span class="step-label">min</span>
+                    </div>
+                </div>
+                <div class="resource-tag">Roommate 🙋‍♂️</div>
+            </div>
+
+            <div class="inventory-triangle"></div>
+            <div class="arrow-connector">➜</div>
+
+            <div class="map-step">
+                <div class="process-box">
+                    <span>Accept<br>Payment</span>
+                    <div>
+                        <input type="number" id="step_room_3" class="step-time-input" value="1" oninput="update()">
+                        <span class="step-label">min</span>
+                    </div>
+                </div>
+                <div class="resource-tag">Roommate 🙋‍♂️</div>
+            </div>
+
+            <div class="arrow-connector">➜</div>
+            <div class="inventory-triangle"></div>
+        </div>
+    </div>
+
+    <div class="kpi-header">
+        <div style="font-size: 1.0em; text-transform: uppercase; opacity: 0.8;">Hourly Process Capacity</div>
+        <div style="font-size: 2.5em; font-weight: bold;">
+            <span id="sys-cap">0.00</span> <span style="font-size: 0.5em;">doz/hr</span>
+        </div>
+        <div style="font-size: 1.0em; color: #f1c40f;">Bottleneck: <span id="sys-bn">LOADING</span></div>
+    </div>
+
+    <div class="dashboard">
+        <div class="card">
+            <h2>⚙️ Resource Activity Times</h2>
+            
+            <div class="resource-row">
+                <div>
+                    <label>1. Kristen 👩‍🍳</label>
+                    <div class="small-text">Steps: Wash & Mix + Dish Up</div>
+                </div>
+                <div class="input-group">
+                    <label>Total Time</label>
+                    <input type="text" id="disp_kristen_time" class="readonly" readonly>
+                </div>
+                <div class="input-group">
+                    <label>Count (N)</label>
+                    <input type="number" id="count_kristen" value="1" oninput="update()">
+                </div>
+            </div>
+
+            <div class="resource-row">
+                <div>
+                    <label>2. Roommate 🙋‍♂️</label>
+                    <div class="small-text">Steps: Load + Pack + Payment</div>
+                </div>
+                <div class="input-group">
+                    <label>Total Time</label>
+                    <input type="text" id="disp_room_time" class="readonly" readonly>
+                </div>
+                <div class="input-group">
+                    <label>Count (N)</label>
+                    <input type="number" id="count_room" value="1" oninput="update()">
+                </div>
+            </div>
+
+            <div class="resource-row">
+                <div>
+                    <label>3. Oven ♨️</label>
+                    <div class="small-text">Steps: Load + Baking Time</div>
+                </div>
+                <div class="input-group">
+                    <label>Total Time</label>
+                    <input type="text" id="disp_oven_time" class="readonly" readonly>
+                </div>
+                <div class="input-group">
+                    <label>Units (N)</label>
+                    <input type="number" id="count_oven" value="1" oninput="update()">
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>📊 Capacity - Relevant Resources</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Resource</th>
+                        <th>Cap (doz/hr)</th>
+                        <th>Cap</th>
+                    </tr>
+                </thead>
+                <tbody id="table-body"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="flow-section">
+        <h3 style="margin-top:0; color:#888; text-align: center; font-size: 0.9em;">VISUAL CAPACITY ANALYSIS (Height = Capacity)</h3>
+        <div class="flow-wrapper">
+            <div class="flow-line"></div>
+            
+            <div class="flow-node" id="node-kristen">
+                <div class="node-content">
+                    <span class="node-icon">👩‍🍳</span>
+                    <span class="node-title">Kristen</span>
+                    <div class="node-stat" id="lbl-kristen">7.50 doz/hr</div>
+                </div>
+                <div class="arrow-next">➜</div>
+            </div>
+
+            <div class="flow-node" id="node-oven">
+                <div class="node-content">
+                    <span class="node-icon">♨️</span>
+                    <span class="node-title">Oven</span>
+                    <div class="node-stat" id="lbl-oven">6.00 doz/hr</div>
+                </div>
+                <div class="arrow-next">➜</div>
+            </div>
+
+            <div class="flow-node" id="node-room">
+                <div class="node-content">
+                    <span class="node-icon">🙋‍♂️</span>
+                    <span class="node-title">Roommate</span>
+                    <div class="node-stat" id="lbl-room">15.00 doz/hr</div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+    function update() {
+        // 1. GATHER DATA FROM MAP BOXES (Step Times in Minutes)
+        const t_k1 = Number(document.getElementById('step_kristen_1').value) || 0;
+        const t_k2 = Number(document.getElementById('step_kristen_2').value) || 0;
+        
+        const t_r1 = Number(document.getElementById('step_room_1').value) || 0;
+        const t_r2 = Number(document.getElementById('step_room_2').value) || 0;
+        const t_r3 = Number(document.getElementById('step_room_3').value) || 0;
+
+        const t_o1 = Number(document.getElementById('step_oven_1').value) || 0;
+
+        // 2. SUMMARIZE TIMES
+        // Kristen does Wash & Mix + Dish Up
+        const time_kristen = t_k1 + t_k2;
+        // Roommate does Load + Pack + Payment
+        const time_roommate = t_r1 + t_r2 + t_r3;
+        // Oven is occupied during Loading (t_r1) AND Baking (t_o1)
+        const time_oven = t_r1 + t_o1;
+
+        // 3. UPDATE READ-ONLY DISPLAYS
+        document.getElementById('disp_kristen_time').value = time_kristen;
+        document.getElementById('disp_room_time').value = time_roommate;
+        document.getElementById('disp_oven_time').value = time_oven;
+
+        // 4. GATHER RESOURCE COUNTS (N)
+        const n_k = Number(document.getElementById('count_kristen').value) || 1;
+        const n_r = Number(document.getElementById('count_room').value) || 1;
+        const n_o = Number(document.getElementById('count_oven').value) || 1;
+
+        // 5. CALCULATE CAPACITIES (N * 60 / Activity Time)
+        const caps = [
+            { id: 'kristen', name: 'Kristen', val: time_kristen > 0 ? (n_k * 60) / time_kristen : 0 },
+            { id: 'oven', name: 'Oven', val: time_oven > 0 ? (n_o * 60) / time_oven : 0 },
+            { id: 'room', name: 'Roommate', val: time_roommate > 0 ? (n_r * 60) / time_roommate : 0 }
+        ];
+
+        // 6. STATS & KPI
+        const minCap = Math.min(...caps.map(c => c.val));
+        const maxCap = Math.max(...caps.map(c => c.val));
+
+        document.getElementById('sys-cap').innerText = minCap.toFixed(2);
+        const bnNames = caps.filter(c => Math.abs(c.val - minCap) < 0.001).map(c => c.name);
+        document.getElementById('sys-bn').innerText = bnNames.join(" & ").toUpperCase();
+
+        // 7. UPDATE TABLE
+        const tbody = document.getElementById('table-body');
+        tbody.innerHTML = '';
+        caps.forEach(c => {
+            const isBn = Math.abs(c.val - minCap) < 0.001;
+            const pct = maxCap > 0 ? (c.val / maxCap) * 100 : 0;
+            tbody.innerHTML += `
+                <tr>
+                    <td style="${isBn ? 'color:var(--danger); font-weight:bold' : ''}">${c.name}</td>
+                    <td>${c.val.toFixed(2)}</td>
+                    <td>
+                        <div class="bar-bg">
+                            <div class="bar-fill ${isBn ? 'bn' : ''}" style="width:${pct}%"></div>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+
+        // 8. UPDATE VISUAL BOX HEIGHTS
+        const MAX_HEIGHT_PX = 180;
+        const MIN_HEIGHT_PX = 70;
+
+        caps.forEach(c => {
+            const node = document.getElementById(`node-${c.id}`);
+            const lbl = document.getElementById(`lbl-${c.id}`);
+            const isBn = Math.abs(c.val - minCap) < 0.001;
+
+            lbl.innerText = c.val.toFixed(2) + " doz/hr";
+
+            let heightPx = maxCap > 0 ? (c.val / maxCap) * MAX_HEIGHT_PX : MIN_HEIGHT_PX;
+            if (heightPx < MIN_HEIGHT_PX) heightPx = MIN_HEIGHT_PX;
+
+            node.style.height = `${heightPx}px`;
+            
+            if (isBn) {
+                node.classList.add('bottleneck');
+            } else {
+                node.classList.remove('bottleneck');
+            }
+        });
+    }
+
+    // Init
+    update();
+</script>
+
+</body>
+</html>
